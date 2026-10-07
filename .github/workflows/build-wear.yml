@@ -60,6 +60,28 @@ jobs:
             cp -R patch/smali_classes3/. work/decompiled/smali_classes3/
           fi
 
+      - name: Apply Figma visual theme
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("work/decompiled/smali_classes2/kr/comtime/wear/MainActivity.smali")
+          s = p.read_text(encoding="utf-8")
+          replacements = [
+            ("    const/16 v0, 0xe\\n    const/16 v1, 0x14\\n    const/16 v2, 0xd", "    const/16 v0, 0xf5\\n    const/16 v1, 0xf8\\n    const/16 v2, 0xff"),
+            ("    const/16 v0, 0x1f\\n    const/16 v1, 0x2a\\n    const/16 v2, 0x1e", "    const/16 v0, 0xff\\n    const/16 v1, 0xff\\n    const/16 v2, 0xff"),
+            ("    const/4 v0, -0x1\\n    iput v0, p0, Lkr/comtime/wear/MainActivity;->TEXT:I", "    const v0, 0xff2d2940\\n    iput v0, p0, Lkr/comtime/wear/MainActivity;->TEXT:I"),
+            ("    const/16 v0, 0xaa\\n    const/16 v1, 0xbc\\n    const/16 v2, 0xa8", "    const/16 v0, 0x74\\n    const/16 v1, 0x7c\\n    const/16 v2, 0x8c"),
+            ("    const/16 v0, 0x7c\\n    const/16 v1, 0xff\\n    const/16 v2, 0x8f", "    const/16 v0, 0xff\\n    const/16 v1, 0xa8\\n    const/16 v2, 0xb8"),
+            ("    const/16 v15, 0x38\\n\\n    const/16 v8, 0xca\\n\\n    const/16 v12, 0x43", "    const/16 v15, 0xa8\\n\\n    const/16 v8, 0xb8\\n\\n    const/16 v12, 0xff"),
+            ("    const/16 v12, 0x3a\\n\\n    const/16 v15, 0xed\\n\\n    const/16 v14, 0x7c", "    const/16 v12, 0xb8\\n\\n    const/16 v15, 0xc8\\n\\n    const/16 v14, 0xff"),
+          ]
+          for a,b in replacements:
+              s = s.replace(a,b,1)
+          s = s.replace('const-string v10, "\\uc6cc\\uce58\\uac00 \\uc9c1\\uc811 \\ucd5c\\uc2e0 \\uc2dc\\uac04\\ud45c\\ub97c \\ud655\\uc778\\ud574\\uc694"', 'const-string v10, "\\uc624\\ub298\\uc758 \\uc218\\uc5c5"', 1)
+          p.write_text(s,encoding="utf-8")
+          print("Figma visual theme applied")
+          PY
+
       - name: Rebuild APK
         run: |
           java -jar apktool.jar b work/decompiled -o dist/comtime-wear-unsigned.apk
