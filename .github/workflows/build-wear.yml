@@ -1,0 +1,92 @@
+name: Build Wear APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "input/wear-debug.apk"
+      - "patch/**"
+      - ".github/workflows/build-wear.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Check input APK
+        run: |
+          test -f input/wear-debug.apk
+          ls -lh input/wear-debug.apk
+
+      - name: Download Apktool
+        run: |
+          curl -L --fail --retry 3 \
+            -o apktool.jar \
+            https://github.com/iBotPeaches/Apktool/releases/download/v2.10.0/apktool_2.10.0.jar
+
+      - name: Decode original APK
+        run: |
+          java -jar apktool.jar d input/wear-debug.apk -o work/decompiled --force
+
+      - name: Save decoded project
+        uses: actions/upload-artifact@v4
+        with:
+          name: decompiled-wear-debug
+          path: work/decompiled
+
+      - name: Apply patch overlay
+        run: |
+          if [ -d patch/res ]; then
+            cp -R patch/res/. work/decompiled/res/
+          fi
+          if [ -d patch/smali ]; then
+            cp -R patch/smali/. work/decompiled/smali/
+          fi
+          if [ -d patch/smali_classes2 ]; then
+            cp -R patch/smali_classes2/. work/decompiled/smali_classes2/
+          fi
+          if [ -d patch/smali_classes3 ]; then
+            cp -R patch/smali_classes3/. work/decompiled/smali_classes3/
+          fi
+
+      - name: Rebuild APK
+        run: |
+          java -jar apktool.jar b work/decompiled -o dist/comtime-wear-unsigned.apk
+
+      - name: Sign APK
+        run: |
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
+          keytool -genkeypair -v \
+            -keystore release.keystore \
+            -alias comtime \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Comtime Wear, OU=Android, O=Comtime, C=KR"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks release.keystore \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out dist/comtime-wear.apk \
+            dist/comtime-wear-unsigned.apk
+
+      - name: Verify APK
+        run: |
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" verify --verbose dist/comtime-wear.apk
+
+      - name: Upload final APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: comtime-wear-apk
+          path: dist/comtime-wear.apk
